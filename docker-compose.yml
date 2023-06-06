@@ -1,0 +1,100 @@
+version: "3.9"
+services:
+  db:
+    image: mysql
+    restart: always
+    networks:
+      - prestashop_network
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=mysqldb
+      - MYSQL_ROOT_PASSWORD=r0ot_p4ss!
+
+  prestashop:
+    image: prestashop/prestashop
+    restart: always
+    networks:
+      - prestashop_network
+    ports:
+      - 8080:80
+    links:
+      - db:db
+    depends_on:
+      - db
+    volumes:
+      - ./:/var/www/html
+      - ./modules:/var/www/html/modules
+      - ./themes:/var/www/html/themes
+      - ./override:/var/www/html/override
+    environment:
+      - PS_DEV_MODE=1
+      - PS_INSTALL_AUTO=0
+      - DB_NAME=mysqldb
+      - DB_SERVER=db
+      - DB_USER=root
+      - DB_PASSWD=r0ot_p4ss!
+
+  postgresdb:
+    image: postgres:latest
+    user: root
+    networks:
+      - prestashop_network
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=postgresdb
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=od00@db!2o23
+    restart: always
+    volumes:
+        - ./postgresql:/var/lib/postgresql/data
+
+  odoo:
+    image: odoo:latest
+    user: root
+    depends_on:
+      - postgresdb
+    ports:
+      - 8069:8069
+    tty: true
+    networks:
+      - prestashop_network
+    command: --
+    environment:
+      - HOST=postgresdb
+      - USER=odoo
+      - PASSWORD=od00@db!2o23
+    volumes:
+      #- /etc/timezone:/etc/timezone:ro
+      #- /etc/localtime:/etc/localtime:ro
+      # - ./entrypoint.sh:/entrypoint.sh   # if you want to install additional Python packages, uncomment this line!
+      - ./addons:/mnt/extra-addons
+      - ./etc:/etc/odoo
+    restart: always
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    networks:
+      - prestashop_network
+    links:
+      - db:db
+    ports:
+      - 8081:80
+    depends_on:
+      - db
+      - postgresdb
+    environment:
+      - PMA_HOSTS=db,postgresdb
+    volumes:
+      - phpadmin_data:/var/www/html/
+      # - PMA_USER=root
+      # - PMA_PASSWORD=r0ot_p4ss!
+
+networks:
+  prestashop_network:
+
+volumes:
+  db_data:
+  phpadmin_data:
